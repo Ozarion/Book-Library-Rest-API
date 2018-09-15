@@ -1,11 +1,3 @@
-/*
-*
-*
-*       Complete the API routing below
-*       
-*       
-*/
-
 'use strict';
 
 const mongoose = require('mongoose');
@@ -107,7 +99,7 @@ module.exports = function (app) {
         return res.send("delete successful");
       });
     });
-    
+
     //404 Not Found Middleware
     app.use(function(req, res, next) {
       res.status(404)
