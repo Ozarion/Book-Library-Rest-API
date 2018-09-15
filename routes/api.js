@@ -24,7 +24,7 @@ module.exports = function (app) {
   db.once('open', () => {
     console.log("Successfully Connected to Database");
     
-    // Creating Book Model
+    // Book Model
     const Book = mongoose.model('Book', bookSchema);
     
     app.route('/api/books')
@@ -33,18 +33,17 @@ module.exports = function (app) {
       //response will be array of book objects
       //json res format: [{"_id": bookid, "title": book_title, "commentcount": num_of_comments },...]
       Book.find()
-      .exec()
-      .then(books => {
+      .exec((err, books) => {
+        if (err) {
+          return res.send("found nothing");
+        }
         if (!books) {
-          throw new Error('found nothing');
+          return res.json([]);
         }
         books = books.map(book => {
           return {"_id":book._id, "title": book.title, "commentcount": book.comments.length};
         });
         return res.json(books);
-      })
-      .catch(err => {
-        return res.status(200).text("ERROR: "+ err.message);
       });
     })
     
@@ -59,7 +58,7 @@ module.exports = function (app) {
         return res.json({_id: savedBook._id, title: savedBook.title}); 
       })
       .catch(err => {
-        return res.status(200).text('error occured');
+        return res.status(200).type('text').send('error occured');
       });
       //response will contain new book object including atleast _id and title
     })
@@ -67,9 +66,9 @@ module.exports = function (app) {
       .delete((req, res) => {
       Book.remove({}, (err) => {
         if (err) {
-          return res.status(200).text("cannot delete all documents");
+          return res.send("cannot delete all documents");
         }
-        return res.status(200).text("complete delete successful");
+        return res.send("complete delete successful");
       });
       //if successful response will be 'complete delete successful'
     });
