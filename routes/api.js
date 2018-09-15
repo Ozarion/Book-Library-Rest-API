@@ -8,46 +8,118 @@
 
 'use strict';
 
-var expect = require('chai').expect;
-var MongoClient = require('mongodb').MongoClient;
-var ObjectId = require('mongodb').ObjectId;
+const mongoose = require('mongoose');
 const MONGODB_CONNECTION_STRING = process.env.DB;
-//Example connection: MongoClient.connect(MONGODB_CONNECTION_STRING, function(err, db) {});
+const Schema = mongoose.Schema;
+
+const bookSchema = new Schema({
+  title : {type: String, required: true},
+  comments : [String]
+});
 
 module.exports = function (app) {
-
-  app.route('/api/books')
-    .get(function (req, res){
+  mongoose.connect(MONGODB_CONNECTION_STRING);
+  const db = mongoose.connection;
+  db.on('error', () => { console.log("Cannot Connect to Database") });
+  db.once('open', () => {
+    console.log("Successfully Connected to Database");
+    
+    // Creating Book Model
+    const Book = mongoose.model('Book', bookSchema);
+    
+    app.route('/api/books')
+    
+      .get((req, res) => {
       //response will be array of book objects
       //json res format: [{"_id": bookid, "title": book_title, "commentcount": num_of_comments },...]
+      Book.find()
+      .exec()
+      .then(books => {
+        if (!books) {
+          throw new Error('found nothing');
+        }
+        books = books.map(book => {
+          return {"_id":book._id, "title": book.title, "commentcount": book.comments.length};
+        });
+        return res.json(books);
+      })
+      .catch(err => {
+        return res.status(200).text("ERROR: "+ err.message);
+      });
     })
     
-    .post(function (req, res){
-      var title = req.body.title;
+      .post((req, res) => {
+      const title = (req.body.title) ? req.body.title : "";
+      if (title === "") {
+        return res.send("no valid title provided");
+      }
+      const newBook = new Book({"title" : title, "comments" : []});
+      newBook.save()
+      .then(savedBook => {
+        return res.json({_id: savedBook._id, title: savedBook.title}); 
+      })
+      .catch(err => {
+        return res.status(200).text('error occured');
+      });
       //response will contain new book object including atleast _id and title
     })
     
-    .delete(function(req, res){
+      .delete((req, res) => {
+      Book.remove({}, (err) => {
+        if (err) {
+          return res.status(200).text("cannot delete all documents");
+        }
+        return res.status(200).text("complete delete successful");
+      });
       //if successful response will be 'complete delete successful'
     });
-
-
-
-  app.route('/api/books/:id')
-    .get(function (req, res){
-      var bookid = req.params.id;
+    
+    app.route('/api/books/:id')
+      .get((req, res) => {
+      const bookid = req.params.id;
+      Book.findById(bookid)
+      .exec((err, foundBook) => {
+        if (err) {
+          return res.send("no book exists");
+        }
+        return res.json({"_id": foundBook._id, "title": foundBook.title, "comments": foundBook.comments});
+      });
       //json res format: {"_id": bookid, "title": book_title, "comments": [comment,comment,...]}
     })
     
-    .post(function(req, res){
-      var bookid = req.params.id;
-      var comment = req.body.comment;
-      //json res format same as .get
+      .post(function(req, res){
+      const bookid = req.params.id;
+      const comment = req.body.comment;
+      
+      const query = {"$push": {"comments" : comment}};
+      const options = {new: true};
+      Book.findByIdAndUpdate(bookid, query, options)
+      .exec((err, foundBook) => {
+        if (err) {
+          return res.send("no book exists");
+        }
+        return res.json({"_id": foundBook._id, "title": foundBook.title, "comments": foundBook.comments});
+      });
     })
     
-    .delete(function(req, res){
-      var bookid = req.params.id;
+      .delete((req, res) => {
+      const bookid = req.params.id;
+      Book.findByIdAndRemove(bookid)
+      .exec((err, deleted) => {
+        if (err) {
+          res.send("no book exists");
+        }
+        return res.send("delete successful");
+      });
       //if successful response will be 'delete successful'
     });
   
+    //404 Not Found Middleware
+    app.use(function(req, res, next) {
+      res.status(404)
+        .type('text')
+        .send('Not Found');
+    });
+    
+  });
 };
