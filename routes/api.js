@@ -28,10 +28,9 @@ module.exports = function (app) {
     const Book = mongoose.model('Book', bookSchema);
     
     app.route('/api/books')
-    
-      .get((req, res) => {
       //response will be array of book objects
       //json res format: [{"_id": bookid, "title": book_title, "commentcount": num_of_comments },...]
+      .get((req, res) => {
       Book.find()
       .exec((err, books) => {
         if (err) {
@@ -46,7 +45,7 @@ module.exports = function (app) {
         return res.json(books);
       });
     })
-    
+      //response will contain new book object including atleast _id and title
       .post((req, res) => {
       const title = (req.body.title) ? req.body.title : "";
       if (title === "") {
@@ -60,9 +59,8 @@ module.exports = function (app) {
       .catch(err => {
         return res.status(200).type('text').send('error occured');
       });
-      //response will contain new book object including atleast _id and title
     })
-    
+      //if successful response will be 'complete delete successful'
       .delete((req, res) => {
       Book.remove({}, (err) => {
         if (err) {
@@ -70,10 +68,10 @@ module.exports = function (app) {
         }
         return res.send("complete delete successful");
       });
-      //if successful response will be 'complete delete successful'
     });
     
     app.route('/api/books/:id')
+      //json res format: {"_id": bookid, "title": book_title, "comments": [comment,comment,...]}
       .get((req, res) => {
       const bookid = req.params.id;
       Book.findById(bookid)
@@ -83,13 +81,11 @@ module.exports = function (app) {
         }
         return res.json({"_id": foundBook._id, "title": foundBook.title, "comments": foundBook.comments});
       });
-      //json res format: {"_id": bookid, "title": book_title, "comments": [comment,comment,...]}
     })
     
       .post(function(req, res){
       const bookid = req.params.id;
       const comment = req.body.comment;
-      
       const query = {"$push": {"comments" : comment}};
       const options = {new: true};
       Book.findByIdAndUpdate(bookid, query, options)
@@ -100,7 +96,7 @@ module.exports = function (app) {
         return res.json({"_id": foundBook._id, "title": foundBook.title, "comments": foundBook.comments});
       });
     })
-    
+      //if successful response will be 'delete successful'
       .delete((req, res) => {
       const bookid = req.params.id;
       Book.findByIdAndRemove(bookid)
@@ -110,9 +106,8 @@ module.exports = function (app) {
         }
         return res.send("delete successful");
       });
-      //if successful response will be 'delete successful'
     });
-  
+    
     //404 Not Found Middleware
     app.use(function(req, res, next) {
       res.status(404)
